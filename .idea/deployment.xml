@@ -3,6 +3,13 @@
   <component name="PublishConfigData" autoUpload="Always" serverName="Web_Server" confirmBeforeUploading="false">
     <option name="confirmBeforeUploading" value="false" />
     <serverData>
+      <paths name="HuaWeiCloud-Ubuntu (0cbe6ec6-9768-41e7-b833-6518c7011fed)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/tmp.YvusP4fwtS" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="Web_Server">
         <serverdata>
           <mappings>
