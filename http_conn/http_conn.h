@@ -118,14 +118,14 @@ public:
     int m_state;// 读0，写1
 
 private:
-    int m_sockfd;
+    int m_sockfd;// 当前连接客户的socket描述符
     sockaddr_in m_address;
     char m_read_buf[READ_BUFFER_SIZE];// 读缓冲区
     int m_read_idx;// 读到哪了
     int m_check_idx;// 检查到哪了
     int m_start_line; // 已经解析的字符
     int m_write_buf[WRITE_BUFFER_SIZE];// 写缓冲区
-    int m_wirte_idx;// 写到哪了
+    int m_write_idx;// 写到哪了
     CHECK_STATE m_check_state;// 主状态机状态
     METHOD m_method;
     char m_real_file[FILE_NAME_LEN];// 读取文件名称

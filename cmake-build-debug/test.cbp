@@ -2,7 +2,7 @@
 <CodeBlocks_project_file>
 	<FileVersion major="1" minor="6"/>
 	<Project>
-		<Option title="Web_Server"/>
+		<Option title="test"/>
 		<Option makefile_is_custom="1"/>
 		<Option compiler="gcc"/>
 		<Option virtualFolders="CMake Files\;"/>
@@ -17,8 +17,8 @@
 					<DistClean command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
 				</MakeCommands>
 			</Target>
-			<Target title="Web_Server">
-				<Option output="/tmp/tmp.YvusP4fwtS/cmake-build-debug/Web_Server" prefix_auto="0" extension_auto="0"/>
+			<Target title="test">
+				<Option output="/tmp/tmp.YvusP4fwtS/cmake-build-debug/test" prefix_auto="0" extension_auto="0"/>
 				<Option working_dir=""/>
 				<Option object_output="./"/>
 				<Option type="1"/>
@@ -33,14 +33,14 @@
 					<Add directory="/usr/include"/>
 				</Compiler>
 				<MakeCommands>
-					<Build command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 Web_Server"/>
+					<Build command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 test"/>
 					<CompileFile command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
 					<Clean command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
 					<DistClean command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
 				</MakeCommands>
 			</Target>
-			<Target title="Web_Server/fast">
-				<Option output="/tmp/tmp.YvusP4fwtS/cmake-build-debug/Web_Server" prefix_auto="0" extension_auto="0"/>
+			<Target title="test/fast">
+				<Option output="/tmp/tmp.YvusP4fwtS/cmake-build-debug/test" prefix_auto="0" extension_auto="0"/>
 				<Option working_dir=""/>
 				<Option object_output="./"/>
 				<Option type="1"/>
@@ -55,7 +55,7 @@
 					<Add directory="/usr/include"/>
 				</Compiler>
 				<MakeCommands>
-					<Build command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 Web_Server/fast"/>
+					<Build command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 test/fast"/>
 					<CompileFile command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
 					<Clean command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
 					<DistClean command="/usr/bin/make -f &quot;/tmp/tmp.YvusP4fwtS/cmake-build-debug/Makefile&quot;  VERBOSE=1 clean"/>
@@ -83,7 +83,7 @@
 			</Target>
 		</Build>
 		<Unit filename="/tmp/tmp.YvusP4fwtS/main.cpp">
-			<Option target="Web_Server"/>
+			<Option target="test"/>
 		</Unit>
 		<Unit filename="/tmp/tmp.YvusP4fwtS/CMakeLists.txt">
 			<Option virtualFolder="CMake Files\"/>

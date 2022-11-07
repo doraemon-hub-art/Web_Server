@@ -1,4 +1,4 @@
-# Install script for directory: /home/xuanxuan/coding/tmp/tmp.YvusP4fwtS
+# Install script for directory: /tmp/tmp.YvusP4fwtS
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/xuanxuan/coding/tmp/tmp.YvusP4fwtS/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/tmp/tmp.YvusP4fwtS/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
