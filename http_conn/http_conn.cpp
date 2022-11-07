@@ -117,10 +117,14 @@ void http_conn::init(int socked, const sockaddr_in &addr, char *root, int TRIGMo
     m_TRIGMod = TRIGMode;
     m_close_log = close_log;
 
-    strcpy();
+    strcpy(sql_user,user.c_str());
+    strcpy(sql_passwd,passwd.c_str());
+    strcpy(sql_name,sqlname.c_str());
 
+    init();
 }
 
+// 初始化
 void http_conn::init() {
     mysql = nullptr;
     bytes_have_send = 0;
@@ -146,6 +150,167 @@ void http_conn::init() {
     memset(m_real_file,'\0',FILE_NAME_LEN);
 }
 
+// 从状态机，用于分析出一行内容
+// 返回值为行的读取状态，有LINE_OK,LINE_BAD,LINE_OPEN
+http_conn::LINE_STATUS http_conn::parse_line() {
+    char temp;
+    for(;m_check_idx < m_read_idx;m_check_idx++){
+        temp = m_read_buf[m_check_idx];
+        if(temp == '\r'){
+            if(m_check_idx + 1 == m_read_idx){
+                return LINE_OPEN;// 没读完-行内容不全
+            }else if(m_read_buf[m_check_idx+1] == '\n'){
+                m_read_buf[m_check_idx++] = '\0';
+                m_read_buf[m_check_idx++] = '\0';
+                return LINE_OPEN;// 成功读取到一行
+            }
+            return LINE_BAD;// 行出错
+        }else if(temp == '\n'){
+            // 一开始看这个感觉很奇怪，不知道这行是干嘛的
+            // 作用: 因为可能不是一次性读(发)过来的，比如前面读到\r,这里到\n，所以要如此判断。
+            if(m_check_idx > 1 && m_read_buf[m_check_idx-1] == '\r'){
+                m_read_buf[m_check_idx-1] = '\0';
+                m_read_buf[m_check_idx++] = '\0';
+                return LINE_OK;
+            }
+            return LINE_BAD;
+        }
+    }
+    return LINE_OPEN;// 没读完
+}
 
-// 初始化新接收的连接
-// check_state默认为分析请求行状态
+// 循环读取数据，直到无数据可读或对方关闭连接
+// 非阻塞ET工作模式下，需要一次性将数据读取完成。因为只提醒一次。
+bool http_conn::read_once() {
+    if(m_read_idx >= READ_BUFFER_SIZE){
+        return false;
+    }
+    int bytes_read = 0;// 读取数量
+
+    // LT读取数据-条件模式读取数据
+    if(m_TRIGMod == 0){
+        // 边界控制读取多少
+        bytes_read = recv(m_sockfd,m_read_buf+m_read_idx,READ_BUFFER_SIZE-m_read_idx,0);
+        m_read_idx += bytes_read;
+
+        if(bytes_read <= 0){
+            return false;
+        }
+        return true;
+    }else{// ET-模式读取-要一次读光
+        while (true){
+            bytes_read = recv(m_sockfd,m_read_buf+m_read_idx,READ_BUFFER_SIZE-m_read_idx,0);
+            if(bytes_read == -1){// ET模式要将描述符设为非阻塞
+                if(errno == EAGAIN ||  errno == EWOULDBLOCK){// 读光
+                    break;
+                }
+                return false;
+            }else if(bytes_read == 0){// 链接关闭
+                return false;
+            }
+        }
+        m_read_idx += bytes_read;
+    }
+    return true;
+}
+
+// 解析http请求行，获取请求方法，目标url即http版本号
+// 请求行格式: GET /index.html HTTP/1.1
+http_conn::HTTP_CODE http_conn::parse_request_line(char *text) {
+    m_url = strpbrk(text," \t");
+    if(!m_url){
+        return BAD_REQUEST;// 错误请求
+    }
+    *m_url++ = '\0';
+    char* method = text;
+
+    // 判断请求方式，我们只处理GET和POST方法
+    if(strcasecmp(method,"GET") == 0){
+        m_method = GET;
+    }else if(strcasecmp(method,"POST") == 0){
+        m_method = POST;
+        cgi = 1;
+    }else{
+        return BAD_REQUEST;
+    }
+
+    m_url += strspn(m_url," \t");
+    m_version = strpbrk(m_url," \t");
+
+    if(!m_version){
+        return BAD_REQUEST;
+    }
+    *m_version++ ='\0';
+    m_version += strspn(m_version," \t");
+    if(strcasecmp(m_version,"HTTP/1.1") != 0){
+        return BAD_REQUEST;
+    }
+
+    // 分析请求路径
+    if(strncasecmp(m_url,"http://",7) == 0){
+        m_url += 7;
+        m_url = strchr(m_url,'/');
+    }
+    if(strncasecmp(m_url,"https://",8) == 0){
+        m_url += 8;
+        m_url = strchr(m_url,'/');
+    }
+
+    if(!m_url || m_url[0] != '/'){// 错误请求
+        return BAD_REQUEST;
+    }
+
+    // 当url为/时，判断显示界面
+    if(strlen(m_url) == 1){// 只为/,说明访问首页
+        strcat(m_url,"judge.html");// 将src追加到dest尾部
+    }
+    m_check_state = CHECK_STATE_HEADER;
+    return NO_REQUEST;// 请求不完整
+}
+
+// 解析http请求头，的一个信息，XX:XXX,这是一个信息，即一行。
+http_conn::HTTP_CODE http_conn::parse_headers(char *text) {
+    if(text[0] == '\0'){
+        if(m_content_length != 0){
+            m_check_state = CHECK_STATE_CONTENT;// 请求不完整
+            return NO_REQUEST;
+        }
+        return GET_REQUEST;// 获得了一个完整请求
+    }else if(strncasecmp(text,"Connection:",11) == 0){
+        text += 11;
+        text += strspn(text," \t");// \t之后就是内容,即 text: xx:strspn，即指向s了。
+        if(strcasecmp(text,"keep-alive") == 0){
+            m_linger = true;
+        }
+    }else if(strncasecmp(text,"Content-length:",15) == 0){
+        text += 15;
+        text += strspn(text," \t");
+        m_content_length = atol(text);
+    }else if(strncasecmp(text,"Host:",5) == 0){
+        text += 5;
+        text += strspn(text," \t");
+        m_host = text;
+    }else{// 未知请求头
+        LOG_INFO("oop! unknow header: %s",text);
+    }
+}
+
+// 判断http请求是否被完整读入
+http_conn::HTTP_CODE http_conn::parse_content(char *text) {
+    // 当前读取到的位置，大于等于，内容的长度和已经检查的长度
+    if(m_read_idx >= m_content_length + m_check_idx){
+        text[m_content_length] = '\0';
+        // POST请求中最后为输入的用户名和密码
+        m_string = text;
+        return GET_REQUEST;// 获得了一个完整的请求行
+    }
+    return NO_REQUEST;// 不完整
+}
+
+
+// 分析http请求的入口函数——主状态机
+http_conn::HTTP_CODE http_conn::process_read() {
+    LINE_STATUS line_status = LINE_OK;// 从状态机状态
+    HTTP_CODE ret = NO_REQUEST;
+    char* text = 0;
+}

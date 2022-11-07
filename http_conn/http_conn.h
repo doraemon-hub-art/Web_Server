@@ -46,9 +46,12 @@ public:
     };
 
     enum LINE_STATUS{// 从状态机的状态
-        LINE_OK = 0,    //  成功读取到一行
-        LINE_BAD,   // 当前行数据出错
-        LINE_OPEN   // 数据不完整
+        //  成功读取到一行
+        LINE_OK = 0,
+        // 当前行数据出错
+        LINE_BAD,
+        // 数据不完整
+        LINE_OPEN
     };
 
 public:
@@ -86,7 +89,7 @@ public:
 
 private:
     void init();
-    HTTP_CODE process_read(HTTP_CODE ret);
+    HTTP_CODE process_read();
     HTTP_CODE parse_request_line(char* text);// 解析请求行
     HTTP_CODE parse_headers(char* text);// 解析请求头
     HTTP_CODE parse_content(char* text);// 解析请求内容
@@ -134,7 +137,7 @@ private:
     char* m_url;// 地址
     char* m_version;
     char* m_host;
-    int m_content_length;
+    int m_content_length;// 内容长度
     bool m_linger;
     char* m_file_address;// 文件路径
     struct stat m_file_stat;
@@ -147,7 +150,7 @@ private:
     char* doc_root;
 
     std::map<std::string,std::string>m_users;
-    int m_TRIGMod;
+    int m_TRIGMod;// ET-1 or LT-0
     int m_close_log;
 
     char sql_user[100];
