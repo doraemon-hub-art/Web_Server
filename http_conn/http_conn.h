@@ -35,13 +35,20 @@ public:
     };
 
     enum HTTP_CODE{// 报文解析的结果
+        // 请求不完整，需要继续读取客户数据
         NO_REQUEST,
+        // 获得了一个完整的客户请求
         GET_REQUEST,
+        // 客户请求有语法错误
         BAD_REQUEST,
+        // 无资源
         NO_RESOURCE,
+        // 客户对资源没有足够的权限访问
         FORBIDDEN_REQUEST,
         FILE_REQUEST,
+        // 服务器内部错误
         INTERNAL_ERROR,
+        // 客户端已经关闭连接
         CLOSED_CONNECTION
     };
 

@@ -292,6 +292,7 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text) {
         m_host = text;
     }else{// 未知请求头
         LOG_INFO("oop! unknow header: %s",text);
+        return BAD_REQUEST;
     }
 }
 
@@ -313,4 +314,46 @@ http_conn::HTTP_CODE http_conn::process_read() {
     LINE_STATUS line_status = LINE_OK;// 从状态机状态
     HTTP_CODE ret = NO_REQUEST;
     char* text = 0;
+
+    while((m_check_state == CHECK_STATE_CONTENT && line_status == LINE_OK) ||
+    ((line_status = parse_line()) ==LINE_OK)){
+        text = get_line();// 指向未处理的字符
+        m_start_line = m_check_idx;
+        LOG_INFO("%s",text);
+        switch (m_check_state) {// 主状态机状态变化
+
+        case CHECK_STATE_REQUESTLINE:{
+            ret = parse_request_line(text);
+            if(ret == BAD_REQUEST){
+                return  BAD_REQUEST;
+            }
+            break;
+        }
+        case CHECK_STATE_HEADER:{
+            ret = parse_headers(text);
+            if(ret == BAD_REQUEST){
+                return  BAD_REQUEST;
+            }else if(ret == GET_REQUEST){
+                return do_request();
+            }
+            break;
+        }
+        case CHECK_STATE_CONTENT:{
+            ret = parse_content(text);
+            if(ret == GET_REQUEST){
+                 return do_request();
+            }
+            line_status = LINE_OPEN;
+            break;
+        }
+        default:
+            return INTERNAL_ERROR;
+        }
+    }
+    return NO_REQUEST;
+}
+
+// 做响应
+http_conn::HTTP_CODE http_conn::do_request() {
+
 }
