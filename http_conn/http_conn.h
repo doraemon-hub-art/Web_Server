@@ -6,6 +6,8 @@
 #include "../lst_timer/lst_timer.h"
 #include "../log/log.h"
 
+#include <stdio.h>
+
 class http_conn{
 
 public:
@@ -45,6 +47,7 @@ public:
         NO_RESOURCE,
         // 客户对资源没有足够的权限访问
         FORBIDDEN_REQUEST,
+        // 请求文件存在，可以访问到。
         FILE_REQUEST,
         // 服务器内部错误
         INTERNAL_ERROR,
@@ -85,6 +88,7 @@ public:
     // 响应报文写入
     bool write();
 
+
     sockaddr_in* get_address(){
         return &m_address;
     }
@@ -109,6 +113,7 @@ private:
 
     // 从状态机读取一行，分析是请求报文的哪一部分
     LINE_STATUS parse_line();
+    // 解除映射
     void unmap();
 
     // 根据响应报文格式，生成对应8个部分，以下函数均由do_request调用
@@ -148,13 +153,21 @@ private:
     bool m_linger;
     char* m_file_address;// 文件路径
     struct stat m_file_stat;
+    /*
+    struct iovec
+    {
+    void *iov_base;	// Pointer to data.
+    size_t iov_len;	// Length of data.
+    };
+    */
     struct iovec m_iv[2];
-    int m_iv_count; 
+    int m_iv_count;
+
     int cgi;   // 是否启用的POST
     char* m_string; // 存储请求头数据
-    int bytes_to_send;
+    int bytes_to_send;// 要发送的数据大小
     int bytes_have_send;
-    char* doc_root;
+    char* doc_root;// 我感觉应该是根目录-即资源文件文件夹
 
     std::map<std::string,std::string>m_users;
     int m_TRIGMod;// ET-1 or LT-0

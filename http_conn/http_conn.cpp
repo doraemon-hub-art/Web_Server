@@ -214,7 +214,7 @@ bool http_conn::read_once() {
     return true;
 }
 
-// 解析http请求行，获取请求方法，目标url即http版本号
+// 解析http请求行，获取请求方法，目标url及http版本号
 // 请求行格式: GET /index.html HTTP/1.1
 http_conn::HTTP_CODE http_conn::parse_request_line(char *text) {
     m_url = strpbrk(text," \t");
@@ -355,5 +355,235 @@ http_conn::HTTP_CODE http_conn::process_read() {
 
 // 做响应
 http_conn::HTTP_CODE http_conn::do_request() {
+    // 将初始化的m_real_file赋值为网站根目录
+    strcpy(m_real_file, doc_root);
+    int len = strlen(doc_root);
 
+    // 找到m_url中/ 的位置
+    const char *p = strchr(m_url, '/');
+
+    // 处理cgi
+    // 实现登录和注册校验
+    if (cgi == 1 && (*(p + 1) == '2' || *(p + 1) == '3')) {
+
+        // 根据标志判断是登录检测还是注册检测
+        char flag = m_url[1];
+
+        char *m_url_real = (char *) malloc(sizeof(char) * 200);
+        strcpy(m_url_real, "/");
+        strcpy(m_url_real, m_url + 2);
+        strncpy(m_real_file + len, m_url_real, FILE_NAME_LEN - len - 1);
+        free(m_url_real);
+
+        // 将用户名和密码提取出来
+        // user=123&passwd=123
+        char name[100], password[100];
+        int i = 0;
+        for (i = 5; m_string[i] != '&'; i++) {
+            name[i - 5] = m_string[i];
+        }
+        name[i - 5] = '\0';
+
+        int j = 0;
+        for (i = i + 10; m_string[i] != '\0'; i++, j++) {
+            password[j] = m_string[i];
+        }
+        password[j] = '\0';
+
+        if (*(p + 1) == 3) {// 注册
+            // 如果是注册，先检测数据库中是否有重名的
+            // 没有重名的，进行增加数据
+            char *sql_insert = (char *) malloc(sizeof(char) * 200);
+            strcpy(sql_insert, "INSERT INTO user(username,passwd) VALUES(");
+            // 追加拼接字符串
+            strcat(sql_insert, "'");
+            strcat(sql_insert, name);
+            strcat(sql_insert, "', '");
+            strcat(sql_insert, password);
+            strcat(sql_insert, "')");
+            if (users.find(name) == users.end()) {// 没找到
+                m_lock.lock();
+                int res = mysql_query(mysql, sql_insert);// 执行语句
+                users.insert(std::pair<std::string, std::string>(name, password));
+                m_lock.unlock();
+
+                if (!res) {
+                    strcpy(m_url, "/log.html");
+                } else {
+                    strcpy(m_url, "/registerError.html");
+                }
+
+            } else if (*(p + 1) == '2') {// 登录
+                // 若输入的用户名和密码可以查询到
+                if (users.find(name) != users.end() && users[name] == password) {
+                    strcpy(m_url, "/welcome.html");
+                } else {
+                    strcpy(m_url, "logError.html");
+                }
+            }
+        }
+
+        // 如果请求资源为/0，表示跳转注册界面
+        if (*(p + 1) == '0') {
+            char* m_url_real = (char*) malloc(sizeof(char)*200);
+            strcpy(m_url_real,"/register.html");
+
+            // 将网站目录和/register.html进行拼接，更新到m_real_file中
+            strncpy(m_real_file+len,m_url_real, strlen(m_url_real));
+
+            free(m_url_real);
+        }else if(*(p+1) == '1'){// 如果请求资源为/1，则表示跳转登录界面
+            char *m_url_real = (char*)malloc(sizeof(char)*200);
+            strcpy(m_url_real,"/log.html");
+
+            // 将网站目录和/log.html进行拼接，更新到m_real_file中
+            strncpy(m_real_file+len,m_url_real, strlen(m_url_real));
+
+            free(m_url_real);
+        }else if(*(p+1) == '5'){// 请求资源为/5，请求图片资源
+            char* m_url_real = (char*)malloc(sizeof(char)*200);
+            strcpy(m_url_real,"/picture.html");
+            strncpy(m_real_file+len,m_url_real,strlen(m_url_real));
+
+            free(m_url_real);
+        }else if(*(p+1) == '6'){// 请求资源为/6，请求视频资源
+            char* m_url_real = (char*)malloc(sizeof(char)*200);
+            strcpy(m_url_real,"video.html");
+            strncpy(m_real_file+len,m_url_real, strlen(m_url_real));
+
+            free(m_url_real);
+        }else if(*(p+1) == '7'){// 请求资源为/7,请求一个小彩蛋
+            char* m_url_real = (char*)malloc(sizeof(char)*200);
+            strcpy(m_url_real,"fans.html");
+            strncpy(m_real_file+len,m_url_real, strlen(m_url_real));
+
+            free(m_url_real);
+        }else{// 均不符合以上请求资源的类型
+            //如果以上均不符合，即不是登录和注册，直接将url与网站目录拼接
+            //这里的情况是welcome界面，请求服务器上的一个图片
+            strncpy(m_real_file+len,m_url,FILE_NAME_LEN-len-1);
+        }
+
+        // 通过stat获取请求资源文件的信息，成功则将信息更新到m_file_stat结构体
+        // 失败返回NO_RESOURCE状态，表示资源不存在
+        if(stat(m_real_file,&m_file_stat) < 0){
+            return NO_RESOURCE;
+        }
+
+        // 判断文件的权限，是否可读
+        if(!(m_file_stat.st_mode & S_IROTH)){
+            return FORBIDDEN_REQUEST;
+        }
+
+        // 判断文件类型，如果是目录，则返回BAD_REQUEST,表示请求报文有误
+        if(S_ISDIR(m_file_stat.st_mode)){
+            return BAD_REQUEST;
+        }
+
+        // 以只读方式获取文件描述符，通过mmap将该文件映射到内存中。
+        int fd = open(m_real_file,O_RDONLY);
+        m_file_address = (char*)mmap(0,m_file_stat.st_size,PROT_READ,MAP_PRIVATE,fd,0);
+
+        // 清理资源——避免文件描述符浪费和占用 close掉
+        close(fd);
+
+        // 表示请求文件存在，且可以访问到。
+        return FILE_REQUEST;
+    }
 }
+
+void http_conn::unmap() {
+    if(m_file_address){
+        munmap(m_file_address,m_file_stat.st_size);
+        m_file_address = 0;
+    }
+}
+
+// 响应-主线程调用-返回给用户(浏览器)
+bool http_conn::write() {
+    int temp = 0;
+
+    // 要发送的数据长度为0
+    // 表示响应报文为空，但是一般不会出现这种情况
+    if(bytes_to_send == 0){
+        modfd(m_epollfd,m_sockfd,EPOLLIN,m_TRIGMod);
+        init();
+        return true;
+    }
+
+    while(1){
+        // 将响应报文的状态行，消息头，空行，响应正文，发送给浏览器端
+        temp = writev(m_sockfd,m_iv,m_iv_count);
+
+        // 写失败
+        if(temp < 0){
+            if(errno == EAGAIN){// 判断缓冲区是不是已经满了
+                // 重新注册写事件
+                modfd(m_epollfd,m_sockfd,EPOLLOUT,m_TRIGMod);
+                return true;
+            }
+            unmap();// 解除映射
+            return false;
+        }
+
+        // 正常发送
+        bytes_have_send += temp;// 更新已发送的字节
+        bytes_to_send -= temp;// 更新要发送的数据大小
+
+        if(bytes_have_send >= m_iv[0].iov_len){// 超过发送数据缓冲区的长度
+            m_iv[0].iov_len = 0;
+            m_iv[1].iov_base = m_file_address + (bytes_have_send - m_write_idx);
+            m_iv[1].iov_len = bytes_to_send;
+        }else{
+            m_iv[0].iov_base = m_write_buf + bytes_have_send;
+            m_iv[0].iov_len = m_iv[0].iov_len-bytes_have_send;
+        }
+
+        if(bytes_have_send <= 0){
+            unmap();
+            modfd(m_epollfd,m_sockfd,EPOLLIN,m_TRIGMod);
+
+            if(m_linger){
+                init();
+                return true;
+            }else{
+                return false;
+            }
+
+        }
+    }
+}
+
+// 更新m_write_idx指针和缓冲区m_write_buf中的内容
+bool http_conn::add_response(const char *format, ...) {
+    // 如果写入的内容超出m_write_buf大小则报错
+    if(m_write_idx  >= WRITE_BUFFER_SIZE){
+        return false;
+    }
+
+    // 定义可变参数列表
+    va_list arg_list;
+
+    // 将变量arg_list初始化为转入参数
+    va_start(arg_list,format);
+
+    // 将数据format从可变参数列表写入缓冲区写，返回写入数据的长度。
+    // int len = vsnprintf(m_write_buf+m_write_idx,WRITE_BUFFER_SIZE-1-m_write_idx,format,arg_list);
+    int len = vsnprintf(m_write_buf + m_write_idx, WRITE_BUFFER_SIZE - 1 - m_write_idx, format, arg_list);
+
+    // 如果写入的数据长度超过缓冲区剩余空间，则报错
+    if(len > WRITE_BUFFER_SIZE - 1 - m_write_idx){
+        va_end(arg_list);
+        return false;
+    }
+
+    // 更新m_write_idx位置
+    m_write_idx += len;
+    // 清空可变参数列表
+    va_end(arg_list);
+
+    LOG_INFO("request:%s",m_write_buf);
+    return true;
+}
+
+
