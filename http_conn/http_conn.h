@@ -101,6 +101,7 @@ public:
 private:
     void init();
     HTTP_CODE process_read();
+    bool process_write(HTTP_CODE ret);
     HTTP_CODE parse_request_line(char* text);// 解析请求行
     HTTP_CODE parse_headers(char* text);// 解析请求头
     HTTP_CODE parse_content(char* text);// 解析请求内容
@@ -150,7 +151,7 @@ private:
     char* m_version;
     char* m_host;
     int m_content_length;// 内容长度
-    bool m_linger;
+    bool m_linger;// 连接状态
     char* m_file_address;// 文件路径
     struct stat m_file_stat;
     /*

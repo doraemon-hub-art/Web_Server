@@ -554,7 +554,7 @@ bool http_conn::write() {
     }
 }
 
-// 更新m_write_idx指针和缓冲区m_write_buf中的内容
+// 下面几个add_xx函数调用此函数，来更新m_write_idx指针和缓冲区m_write_buf中的内容
 bool http_conn::add_response(const char *format, ...) {
     // 如果写入的内容超出m_write_buf大小则报错
     if(m_write_idx  >= WRITE_BUFFER_SIZE){
@@ -569,7 +569,7 @@ bool http_conn::add_response(const char *format, ...) {
 
     // 将数据format从可变参数列表写入缓冲区写，返回写入数据的长度。
     // int len = vsnprintf(m_write_buf+m_write_idx,WRITE_BUFFER_SIZE-1-m_write_idx,format,arg_list);
-    int len = vsnprintf(m_write_buf + m_write_idx, WRITE_BUFFER_SIZE - 1 - m_write_idx, format, arg_list);
+    int len = vsnprintf(m_write_buf + m_write_idx, WRITE_BUFFER_SIZE - 1 - m_write_idx,format,arg_list);
 
     // 如果写入的数据长度超过缓冲区剩余空间，则报错
     if(len > WRITE_BUFFER_SIZE - 1 - m_write_idx){
@@ -586,4 +586,117 @@ bool http_conn::add_response(const char *format, ...) {
     return true;
 }
 
+// 添加状态行
+bool http_conn::add_status_line(int status, const char *title) {
+    return add_response("%s %d %s\r\n","HTTP/1.1",status,title);
+}
 
+// 添加消息报头，具体的添加文本长度，连接状态和空行
+bool http_conn::add_headers(int content_length) {
+    return add_content_length(content_length) && add_linger() && add_blank_line();
+}
+
+// 添加Content-Length，表示响应报文的长度
+bool http_conn::add_content_length(int content_length) {
+    return add_response("Content-Length:%d\r\n",content_length);
+}
+
+//添加文本类型，这里是html
+bool http_conn::add_content_type() {
+    return add_response("Content-Type:%s\r\n","text/html");
+}
+
+// 添加连接状态，通知浏览器端是保持连接还是关闭
+bool http_conn::add_linger() {
+    return add_response("Connection:%s\r\n",(m_linger==true)?"keep-alive":"close");
+}
+
+// 添加空行
+bool http_conn::add_blank_line() {
+    return add_response("s","\r\n");
+}
+
+// 添加文本content
+bool http_conn::add_content(const char *content) {
+    return add_response("%s",content);
+}
+
+// 根据do_request的返回状态，子线程调用向m_write_buf中写入响应报文
+bool http_conn::process_write(HTTP_CODE ret) {
+    switch (ret) {// 内部错误响应500
+    case INTERNAL_ERROR:{
+        // 状态行
+        add_status_line(500,error_500_title);
+        // 消息报头
+        add_headers(strlen(error_500_form));
+        if(!add_content(error_500_form)){
+            return false;
+        }
+        break;
+    }
+    // 报文语法有错误，404
+    case BAD_REQUEST:{
+        add_status_line(404,error_404_title);
+        add_headers(strlen(error_404_form));
+        if(!add_content(error_404_form)){
+            return false;
+        }
+        break;
+    }
+    // 资源没有访问权限，403
+    case FORBIDDEN_REQUEST:{
+        add_status_line(403,error_403_title);
+        add_headers(strlen(error_403_form));
+        if(!add_content(error_403_form)){
+            return false;
+        }
+        break;
+    }
+    // 文件存在，200
+    case FILE_REQUEST:{
+        add_status_line(200,ok_200_title);
+        // 如果请求的资源存在
+        if(m_file_stat.st_size != 0){
+            add_headers(m_file_stat.st_size);
+            m_iv[0].iov_base = m_write_buf;
+            m_iv[0].iov_len = m_write_idx;
+
+            m_iv[1].iov_base = m_file_address;
+            m_iv[1].iov_len = m_file_stat.st_size;
+            m_iv_count = 2;
+
+            //发送的全部数据为响应报文头部信息和文件大小
+            bytes_have_send = m_write_idx + m_file_stat.st_size;
+            return  true;
+        }else{// 请求的资源不存在
+            const char* ok_string="<html><body></body></html>";// 返回空白html文件
+            add_headers(strlen(ok_string));
+            if(!add_content(ok_string)){
+                return false;
+            }
+
+        }
+    }
+    default:
+        return false;
+    }
+
+    // 出FILE_REQUEST状态外，其余状态只申请一个iovec,指向响应报文缓冲区
+    m_iv[0].iov_base = m_write_buf;
+    m_iv[0].iov_len = m_write_idx;
+    m_iv_count = 1;
+    return true;
+}
+
+void http_conn::process() {
+    HTTP_CODE read_ret = process_read();
+    if(read_ret == NO_REQUEST){
+        modfd(m_epollfd,m_sockfd,EPOLLIN,m_TRIGMod);
+        return;
+    }
+    bool write_ret = process_write(read_ret);
+    if(!write_ret){
+        close_conn();
+    }
+    modfd(m_epollfd,m_sockfd,EPOLLOUT,m_TRIGMod);
+}
