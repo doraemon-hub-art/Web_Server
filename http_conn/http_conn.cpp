@@ -688,6 +688,7 @@ bool http_conn::process_write(HTTP_CODE ret) {
     return true;
 }
 
+// 子线程调用函数
 void http_conn::process() {
     HTTP_CODE read_ret = process_read();
     if(read_ret == NO_REQUEST){

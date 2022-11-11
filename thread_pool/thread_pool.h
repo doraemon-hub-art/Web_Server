@@ -4,7 +4,7 @@
 #include "../common/common.h"
 #include "../sql_connection_pool/sql_connection_pool.h"
 
-template<typename T>
+template <typename T>
 class thread_pool{
 
 public:

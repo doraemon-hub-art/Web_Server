@@ -3,8 +3,8 @@
 template<typename T>
 thread_pool<T>::thread_pool(int actor_model,
                 connection_pool *connPool,
-                int thread_number = 8,
-                int max_request = 10000):
+                int thread_number,
+                int max_request):
                 m_actor_model(actor_model),
                 m_thread_number(thread_number),
                 m_max_requests(max_request),
@@ -100,7 +100,7 @@ void thread_pool<T>::run(){
             if(request->write()){// 写
                 request->improv = 1;
             }else{
-                connectionRAII mysqlcon(&request->mysql,m_connPoll);
+                connectionRAII mysqlcon(&request->mysql,m_connPool);
                 request->process();
             }
         }

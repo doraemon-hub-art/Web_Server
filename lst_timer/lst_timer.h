@@ -3,6 +3,7 @@
 
 #include "../common/common.h"
 #include "../log/log.h"
+#include "../http_conn/http_conn.h"
 
 class util_timer;// 前置声明
 struct client_data{// 用户连接信息结构体
@@ -11,20 +12,21 @@ struct client_data{// 用户连接信息结构体
     util_timer *timer;
 };
 
-// 定时器链表结点——定时器类
+// 定时器链表结点——定时器类(结点)
 class util_timer{
 
 public:
     
 public:
-    time_t expire;
+    time_t expire;// 计时——绝对时间，越大的越靠后
     void (* cb_func)(client_data*);
     client_data* user_data;// 存储信息
     util_timer* prev;
     util_timer* next;
 };
 
-// 定时器链表——结点容器
+// 升序链表
+// 定时器链表——结点容器(使用结点组成lianbiao)
 class sort_timer_list{
 
 public:
@@ -37,6 +39,8 @@ public:
     void tick();
 
 private:
+    // 私有成员，被共有成员add_timer和adjust_timer调用
+    // 主要用于调整链表内部结点
     void add_timer(util_timer* timer,util_timer* list_head);
 
     util_timer* head;
