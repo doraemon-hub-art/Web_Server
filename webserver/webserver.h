@@ -61,8 +61,22 @@ private:
     std::string data_base_Name;// 数据库名
     int m_sql_num;
 
-    //线程池相关
-    thread_pool<http_conn> *m_pool;
+    //线程池相关>
+    threadpool<http_conn>*m_pool;
+    int m_thread_num;
+
+    //epoll_event相关
+    epoll_event events[MAX_EVENT_NUMBER];
+
+    int m_listenfd;
+    int m_OPT_LINGER;
+    int m_TRIGMode;
+    int m_LISTENTrigmode;
+    int m_CONNTrigmode;
+
+    // 定时器相关
+    client_data *users_timer;
+    Utils utils;
 
 };
 
