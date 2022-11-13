@@ -7,9 +7,7 @@ block_queue<T>::block_queue(int max_size):
     m_size(0),
     m_front(-1),
     m_back(-1),
-    m_array(new T[max_size]),
-    m_mutex(new locker),
-    m_cond(new cond),{
+    m_array(new T[max_size]){
     if(max_size <= 0){
         exit(-1);
     }
@@ -27,7 +25,7 @@ block_queue<T>::~block_queue(){
 
 template<typename T>
 void block_queue<T>::clear(){
-    m_mutex.lock()
+    m_mutex.lock();
     m_size = 0;
     m_front = -1;
     m_back = -1;

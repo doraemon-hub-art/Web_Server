@@ -207,8 +207,8 @@ void Utils::timer_handler() {
 
 // 返回错误提示
 void Utils::show_error(int connfd, const char *info) {
-    send(condfd,info, strlen(info),0);
-    close(confd);
+    send(connfd,info, strlen(info),0);
+    close(connfd);
 }
 
 int *Utils::u_pipefd = 0;

@@ -16,7 +16,7 @@ public:
     ~WebServer();
 
     // 初始化
-    void init(int port, 
+    void init(int port,
               std::string user,
               std::string passwd,
               std::string databaseName,
@@ -26,8 +26,7 @@ public:
               int sql_num,
               int thread_num,
               int close_log,
-              int actor_mode){
-    }
+              int actor_mode);
 
     void thread_pool();
     void sql_pool();
@@ -58,7 +57,7 @@ private:
     connection_pool *m_connPool;
     std::string m_user;// 用户名
     std::string m_passwd;// 密码
-    std::string data_base_Name;// 数据库名
+    std::string m_data_base_name;// 数据库名
     int m_sql_num;
 
     //线程池相关>
@@ -79,5 +78,6 @@ private:
     Utils utils;
 
 };
+
 
 #endif

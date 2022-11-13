@@ -27,7 +27,7 @@ public:
 
 private:
     // 工作线程运行的函数，它不断从工作队列中取出任务并执行
-    static void worker(void* arg);
+    static void* worker(void* arg);
 
     // 执行任务——从工作线程取出某个任务进行处理
     void run();
@@ -109,7 +109,7 @@ bool threadpool<T>::append_p(T* request){
 }
 
 template<typename T>
-void threadpool<T>::worker(void *arg){
+void* threadpool<T>::worker(void *arg){
     threadpool* pool = (threadpool*)arg;
     pool->run();
     return pool;
