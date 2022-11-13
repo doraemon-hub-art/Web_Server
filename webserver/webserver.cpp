@@ -128,4 +128,100 @@ void WebServer::eventListen() {
     assert(m_epollfd != -1);
 
     utils.addfd(m_epollfd,m_listenfd, false,m_LISTENTrigmode);
+    http_conn::m_epollfd = m_epollfd;
+
+    ret = socketpair(PF_UNIX,SOCK_STREAM,0,m_pipefd);
+    assert(ret != -1);
+    utils.setnonblocking(m_pipefd[1]);// 写端设置非阻塞
+    utils.addfd(m_epollfd,m_pipefd[0], false,0);
+
+    utils.addsig(SIGPIPE,SIG_IGN);
+    utils.addsig(SIGALRM,utils.sig_handler, false);
+    utils.addsig(SIGTERM,utils.sig_handler, false);
+
+    alarm(TIMESLOT);
+
+    // 工具类，信号和描述符基础操作
+    Utils::u_pipefd = m_pipefd;
+    Utils::u_epollfd = m_epollfd;
 }
+
+void WebServer::timer(int connfd, struct sockaddr_in client_address) {
+    users[connfd].init(connfd,client_address,m_root,m_CONNTrigmode,m_close_log,
+                       m_user,m_passwd,m_data_base_name);
+
+    // 初始化client_data数据
+    // 创建定时器，设置回调函数和超时时间，绑定用户数据，将定定时器添加到链表中。
+    // users_timer[connfd]为该连接相关数据
+    users_timer[connfd].address = client_address;
+    users_timer[connfd].sockfd = connfd;
+    util_timer* timer = new util_timer;// 创建一个该连接的结构体
+    timer->user_data = &users_timer[connfd];
+    timer->cb_func = cb_func;
+    time_t cur = time(NULL);// 获取当前时间
+    timer->expire = cur+3*TIMESLOT;//设置失效时间
+    users_timer[connfd].timer = timer;
+    utils.m_timer_lst.add_timer(timer);// 将该连接的定时器放到时间链表中
+}
+
+// 若有数据传输，则将定时器往后延后3个单位
+// 并对新的定时器在链表上的位置进行调整。
+ void WebServer::adjust_timer(util_timer *timer) {
+    time_t  cur = time(NULL);
+    timer->expire = cur*3+TIMESLOT;
+    utils.m_timer_lst.adjust_timer(timer);
+
+    LOG_INFO("%s","adjust timer once");
+}
+
+// 删除结点
+void WebServer::deal_timer(util_timer *timer, int sockfd) {
+    timer->cb_func(&users_timer[sockfd]);//// 删除非活动连接在epoll上注册的事件
+    if(timer){
+        utils.m_timer_lst.del_timer(timer);// 删除定时器
+    }
+    LOG_INFO("close fd %d",users_timer[sockfd].sockfd);
+}
+
+// 新来的链接
+bool WebServer::deal_client_data() {
+    struct sockaddr_in client_address;
+    socklen_t client_addrlength = sizeof(client_address);
+    if(m_LISTENTrigmode == 0){// LT
+        int connfd = accept(m_listenfd,(struct  sockaddr*)&client_address,&client_addrlength);
+        if(connfd < 0){
+            LOG_ERROR("%s:errno is:%d","accept error",errno);
+            return false;
+        }
+        if(http_conn::m_user_count >= MAX_FD){// 连接满了
+            utils.show_error(connfd,"Internal server busy");// 给客户端返回，服务器繁忙
+            LOG_ERROR("%s","Internal server busy");
+            return false;
+        }
+        timer(connfd,client_address);// 初始化连接socket定时器
+    }else{// ET
+        while(1){
+            int connfd = accept(m_listenfd,(struct sockaddr*)&client_address,&client_addrlength);
+            if(connfd < 0){
+                LOG_ERROR("%s:errno is:%d","accept error",errno);
+                break;
+            }
+            if(http_conn::m_user_count >= MAX_FD){// 用户数满了
+                utils.show_error(connfd,"Internal server busy");
+                LOG_ERROR("%s","Internal server busy");
+                break;
+            }
+            timer(connfd,client_address);
+        }
+        return false;
+    }
+    return true;
+}
+
+// 信号处理
+bool WebServer::deal_with_signal(bool &timerout, bool &stop_server) {
+
+}
+
+
+

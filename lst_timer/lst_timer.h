@@ -19,7 +19,7 @@ public:
     
 public:
     time_t expire;// 计时——绝对时间，越大的越靠后
-    void (* cb_func)(client_data*);
+    void (* cb_func)(client_data*);// 回调函数
     client_data* user_data;// 存储信息
     util_timer* prev;
     util_timer* next;
